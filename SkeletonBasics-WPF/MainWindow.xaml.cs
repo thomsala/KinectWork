@@ -10,6 +10,9 @@ namespace Microsoft.Samples.Kinect.SkeletonBasics
     using System.Windows;
     using System.Windows.Media;
     using Microsoft.Kinect;
+    using System.Linq;
+    using System;
+    using System.Windows.Shapes;
 
     /// <summary>
     /// Interaction logic for MainWindow.xaml
@@ -65,6 +68,11 @@ namespace Microsoft.Samples.Kinect.SkeletonBasics
         /// Pen used for drawing bones that are currently inferred
         /// </summary>        
         private readonly Pen inferredBonePen = new Pen(Brushes.Gray, 1);
+
+
+        private readonly Brush defaultPaintingBrush = Brushes.Beige;
+
+        private readonly Pen defaultPaintingPen = new Pen(Brushes.Beige, 2);
 
         /// <summary>
         /// Active Kinect sensor
@@ -221,24 +229,29 @@ namespace Microsoft.Samples.Kinect.SkeletonBasics
 
                 if (skeletons.Length != 0)
                 {
-                    foreach (Skeleton skel in skeletons)
-                    {
-                        RenderClippedEdges(skel, dc);
 
-                        if (skel.TrackingState == SkeletonTrackingState.Tracked)
-                        {
-                            this.DrawBonesAndJoints(skel, dc);
-                        }
-                        else if (skel.TrackingState == SkeletonTrackingState.PositionOnly)
-                        {
-                            dc.DrawEllipse(
-                            this.centerPointBrush,
-                            null,
-                            this.SkeletonPointToScreen(skel.Position),
-                            BodyCenterThickness,
-                            BodyCenterThickness);
-                        }
+                    //TO select the first skeleton which is tracked or positioned, the first in the middle and futher than 20 cm from the camera 
+                    Skeleton skel = skeletons.Where(sk => sk.TrackingState != SkeletonTrackingState.NotTracked).OrderBy(sk => Math.Abs(sk.Position.X)).Where(sk => sk.Position.Z > 0.20).FirstOrDefault();
+                    if (skel == null) return;
+                    //foreach (Skeleton skel in skeletons)
+                    //{
+                    RenderClippedEdges(skel, dc);
+
+                    if (skel.TrackingState == SkeletonTrackingState.Tracked)
+                    {
+                        this.DrawBonesAndJoints(skel, dc);
+                        this.DrawRightHand(skel, dc, JointType.HandRight);
                     }
+                    else if (skel.TrackingState == SkeletonTrackingState.PositionOnly)
+                    {
+                        dc.DrawEllipse(
+                        this.centerPointBrush,
+                        null,
+                        this.SkeletonPointToScreen(skel.Position),
+                        BodyCenterThickness,
+                        BodyCenterThickness);
+                    }
+                    //}
                 }
 
                 // prevent drawing outside of our render area
@@ -281,7 +294,7 @@ namespace Microsoft.Samples.Kinect.SkeletonBasics
             this.DrawBone(skeleton, drawingContext, JointType.HipRight, JointType.KneeRight);
             this.DrawBone(skeleton, drawingContext, JointType.KneeRight, JointType.AnkleRight);
             this.DrawBone(skeleton, drawingContext, JointType.AnkleRight, JointType.FootRight);
- 
+
             // Render Joints
             foreach (Joint joint in skeleton.Joints)
             {
@@ -289,11 +302,11 @@ namespace Microsoft.Samples.Kinect.SkeletonBasics
 
                 if (joint.TrackingState == JointTrackingState.Tracked)
                 {
-                    drawBrush = this.trackedJointBrush;                    
+                    drawBrush = this.trackedJointBrush;
                 }
                 else if (joint.TrackingState == JointTrackingState.Inferred)
                 {
-                    drawBrush = this.inferredJointBrush;                    
+                    drawBrush = this.inferredJointBrush;
                 }
 
                 if (drawBrush != null)
@@ -350,6 +363,28 @@ namespace Microsoft.Samples.Kinect.SkeletonBasics
             }
 
             drawingContext.DrawLine(drawPen, this.SkeletonPointToScreen(joint0.Position), this.SkeletonPointToScreen(joint1.Position));
+        }
+
+        private void DrawRightHand(Skeleton skeleton, DrawingContext drawingContext, JointType jointType0)
+        {
+            Joint joint0 = skeleton.Joints[jointType0];
+
+            // If we can't find either of these joints, exit
+            if (joint0.TrackingState == JointTrackingState.NotTracked)
+            {
+                return;
+            }
+
+            // Don't draw if both points are inferred
+            if (joint0.TrackingState == JointTrackingState.Inferred)
+            {
+                return;
+            }
+
+            Rect rectToDraw = new Rect(this.SkeletonPointToScreen(joint0.Position), new Size(2, 2));
+
+            drawingContext.DrawRectangle(defaultPaintingBrush, defaultPaintingPen, rectToDraw);
+
         }
 
         /// <summary>
